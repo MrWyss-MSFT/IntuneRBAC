@@ -741,6 +741,7 @@ function Get-RolesWithScopeTags {
       [void]$htmlBuilder.Append("<div class='panel-top-section'>")
       [void]$htmlBuilder.Append("<h3><i class='fas fa-users'></i>Role Assignments</h3>")
       foreach ($assignment in $roleAssignments) {
+        $upns = @()
         $roleMembers = Get-RoleMembers -roleDefinitionId $assignment.RoleDefinitionId
         foreach ($member in $roleMembers) {
           $groupMembers = Get-GroupMembers -groupId $member.GroupId
