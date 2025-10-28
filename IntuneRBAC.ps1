@@ -199,7 +199,7 @@ function Get-GroupMembers {
     $groupMembersUri = $nextLink
   }
   else {
-    $groupMembersUri = "https://graph.microsoft.com/beta/groups/$groupId/members?`$select=id,userPrincipalName"
+    $groupMembersUri = "https://graph.microsoft.com/beta/groups/$groupId/transitiveMembers?`$select=id,userPrincipalName"
   }
 
   try {
