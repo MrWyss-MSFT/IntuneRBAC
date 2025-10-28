@@ -186,68 +186,35 @@ function Get-RoleMembers {
 }
 
 function Get-GroupMembers {
-  param($groupId)
-
-  # Skip if no group ID provided
-  if ([string]::IsNullOrEmpty($groupId)) {
-    return @()
-  }
-
-  $groupMembersUri = "https://graph.microsoft.com/beta/groups/$groupId/members"
-  try {
-    $response = Invoke-MgGraphRequest -Uri $groupMembersUri -Method GET
-  }
-  catch {
-    Write-Warning "Could not fetch members for group ${groupId}: $($_.Exception.Message)"
-    return @()
-  }
-
-  $userIds = @()
-  foreach ($member in $response.value) {
-    if ($member.id) {
-      $userIds += $member.id
+    param($groupId, $nextLink)
+    
+    # Skip if no group ID provided
+    if ([string]::IsNullOrEmpty($groupId)) {
+        return @()
     }
-  }
-
-  # Check for pagination
-  if ($response.'@odata.nextLink') {
-    $userIds += Get-GroupMembers -groupId $groupId
-  }
-
-  # Use parallel processing for user lookups if there are many users
-  if ($userIds.Count -gt 10) {
-    $upns = $userIds | ForEach-Object -Parallel {
-      $userId = $_
-      $userUri = "https://graph.microsoft.com/beta/users/$userId"
-      try {
-        $userResponse = Invoke-MgGraphRequest -Uri $userUri -Method GET
-        if ($userResponse.userPrincipalName) {
-          $userResponse.userPrincipalName
-        }
-      }
-      catch {
-        Write-Warning "Could not fetch user details for ${userId}: $($_.Exception.Message)"
-      }
-    } -ThrottleLimit 5
-  }
-  else {
-    # Sequential processing for small groups
-    $upns = @()
-    foreach ($userId in $userIds) {
-      $userUri = "https://graph.microsoft.com/beta/users/$userId"
-      try {
-        $userResponse = Invoke-MgGraphRequest -Uri $userUri -Method GET
-        if ($userResponse.userPrincipalName) {
-          $upns += $userResponse.userPrincipalName
-        }
-      }
-      catch {
-        Write-Warning "Could not fetch user details for ${userId}: $($_.Exception.Message)"
-      }
+    
+    if ($nextLink) {
+        $groupMembersUri = $nextLink
     }
-  }
+    else {
+        $groupMembersUri = "https://graph.microsoft.com/beta/groups/$groupId/members?`$select=id,userPrincipalName"
+    }
 
-  return $upns
+    try {
+        $response = Invoke-MgGraphRequest -Uri $groupMembersUri -Method GET
+    }
+    catch {
+        Write-Warning "Could not fetch members for group ${groupId}: $($_.Exception.Message)"
+        return @()
+    }
+    
+    $upns += $response.value.userPrincipalName
+    
+    # Check for pagination
+    if ($response.'@odata.nextLink') {
+        $upns += Get-GroupMembers -groupId $groupId -nextLink $response.'@odata.nextLink'
+    }
+    return $upns
 }
 
 function Get-ScopeTags {
