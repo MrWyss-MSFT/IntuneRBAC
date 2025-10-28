@@ -156,29 +156,31 @@ function Get-RoleMembers {
 
   $members = @()
   foreach ($member in $response) {
-    $groupId = $member.members -join ", " # Assuming there's only one group per member
+    #$groupId = $member.members -join ", " # Assuming there's only one group per member
 
-    # Skip if no group ID
-    if ([string]::IsNullOrEmpty($groupId)) {
-      continue
-    }
+    foreach ($group in $member.members) {
+      $groupId = $group
+      # Skip if no group ID
+      if ([string]::IsNullOrEmpty($groupId)) {
+        continue
+      }
 
-    # Fetch the group name
-    $groupUri = "https://graph.microsoft.com/beta/groups/$groupId"
-    try {
-      $groupResponse = Invoke-MgGraphRequest -Uri $groupUri -Method GET
-      $groupName = $groupResponse.displayName
-    }
-    catch {
-      Write-Warning "Group $groupId not found or inaccessible. Skipping."
-      continue
-    }
-
-    $members += [PSCustomObject]@{
-      RoleAssignmentName = $member.displayName
-      RoleAssignmentId   = $member.id
-      GroupId            = $groupId
-      GroupName          = $groupName
+      # Fetch the group name
+      $groupUri = "https://graph.microsoft.com/beta/groups/$groupId"
+      try {
+        $groupResponse = Invoke-MgGraphRequest -Uri $groupUri -Method GET
+        $groupName = $groupResponse.displayName
+      }
+      catch {
+        Write-Warning "Group $groupId not found or inaccessible. Skipping."
+        continue
+      }
+      $members += [PSCustomObject]@{
+        RoleAssignmentName = $member.displayName
+        RoleAssignmentId   = $member.id
+        GroupId            = $groupId
+        GroupName          = $groupName 
+      }
     }
   }
 
@@ -186,35 +188,35 @@ function Get-RoleMembers {
 }
 
 function Get-GroupMembers {
-    param($groupId, $nextLink)
+  param($groupId, $nextLink)
     
-    # Skip if no group ID provided
-    if ([string]::IsNullOrEmpty($groupId)) {
-        return @()
-    }
+  # Skip if no group ID provided
+  if ([string]::IsNullOrEmpty($groupId)) {
+    return @()
+  }
     
-    if ($nextLink) {
-        $groupMembersUri = $nextLink
-    }
-    else {
-        $groupMembersUri = "https://graph.microsoft.com/beta/groups/$groupId/members?`$select=id,userPrincipalName"
-    }
+  if ($nextLink) {
+    $groupMembersUri = $nextLink
+  }
+  else {
+    $groupMembersUri = "https://graph.microsoft.com/beta/groups/$groupId/members?`$select=id,userPrincipalName"
+  }
 
-    try {
-        $response = Invoke-MgGraphRequest -Uri $groupMembersUri -Method GET
-    }
-    catch {
-        Write-Warning "Could not fetch members for group ${groupId}: $($_.Exception.Message)"
-        return @()
-    }
+  try {
+    $response = Invoke-MgGraphRequest -Uri $groupMembersUri -Method GET
+  }
+  catch {
+    Write-Warning "Could not fetch members for group ${groupId}: $($_.Exception.Message)"
+    return @()
+  }
     
-    $upns += $response.value.userPrincipalName
+  $upns += $response.value.userPrincipalName
     
-    # Check for pagination
-    if ($response.'@odata.nextLink') {
-        $upns += Get-GroupMembers -groupId $groupId -nextLink $response.'@odata.nextLink'
-    }
-    return $upns
+  # Check for pagination
+  if ($response.'@odata.nextLink') {
+    $upns += Get-GroupMembers -groupId $groupId -nextLink $response.'@odata.nextLink'
+  }
+  return $upns
 }
 
 function Get-ScopeTags {
